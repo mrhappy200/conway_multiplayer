@@ -29,7 +29,7 @@
                   f
                   llvmPackages.bintools
                   nodePackages.typescript-language-server # <-- change here
-                  nodejs_22
+                  nodejs_20
                   vscode-langservers-extracted # <-- change here
                   wasm-pack
                 ];
