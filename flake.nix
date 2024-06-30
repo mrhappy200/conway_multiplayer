@@ -1,70 +1,41 @@
 {
+  description = "Rust with WebAssembly";
+
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, flake-utils, naersk, nixpkgs, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = (import nixpkgs) {
-          inherit system overlays;
-        };
-        naersk' = pkgs.callPackage naersk { };
-        buildInputs = with pkgs; [
-          vulkan-loader
-          xorg.libXcursor
-          xorg.libXi
-          xorg.libXrandr
-          alsa-lib
-          udev
-          pkg-config
-	  wayland-scanner.dev
-        ];
-        nativeBuildInputs = with pkgs; [
-          libxkbcommon
-          (rust-bin.selectLatestNightlyWith
-            (toolchain: toolchain.default.override {
-              extensions = [ "rust-src" "clippy" ];
-            }))
-        ];
-        all_deps = with pkgs; [
-          cargo-flamegraph
-	  cargo-generate
-	  wasm-pack
-	  nodejs_22
-          cargo-expand
-          nixpkgs-fmt
-          cmake
-        ] ++ buildInputs ++ nativeBuildInputs;
-      in
-      rec {
-        # For `nix build` & `nix run`:
-        defaultPackage = packages.bevy_template;
-        packages = rec {
-          bevy_template = naersk'.buildPackage {
-            src = ./.;
-            nativeBuildInputs = nativeBuildInputs;
-            buildInputs = buildInputs;
-            postInstall = ''
-              cp -r assets $out/bin/
-            '';
-            # Disables dynamic linking when building with Nix
-            cargoBuildOptions = x: x ++ [ "--no-default-features" ];
-          };
-        };
+  outputs = { self, fenix, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          f = with fenix.packages.${system}; combine [
+            stable.toolchain
+            targets.wasm32-unknown-unknown.stable.rust-std
+          ];
+        in
+          {
+            devShells.default =
+              pkgs.mkShell {
+                name = "rust-wasm-final-attempt";
 
-        # For `nix develop`:
-        devShell = pkgs.mkShell {
-          nativeBuildInputs = all_deps;
-          shellHook = ''
-            export CARGO_MANIFEST_DIR=$(pwd)
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath all_deps}"
-          '';
-        };
-      }
-    );
+                packages = with pkgs; [
+                  f
+                  llvmPackages.bintools
+                  nodePackages.typescript-language-server # <-- change here
+                  nodejs_22
+                  vscode-langservers-extracted # <-- change here
+                  wasm-pack
+                ];
+
+                CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_LINKER = "lld"; 
+              };
+          }
+      );
 }
