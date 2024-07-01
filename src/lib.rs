@@ -26,13 +26,31 @@ pub struct Universe {
     cells: Vec<Cell>,
 }
 
+pub struct Timer<'a> {
+    name: &'a str,
+}
+
 extern crate web_sys;
+use web_sys::console;
+
+impl<'a> Timer<'a> {
+    pub fn new(name: &'a str) -> Timer<'a> {
+        console::time_with_label(name);
+        Timer { name }
+    }
+}
+
+impl<'a> Drop for Timer<'a> {
+    fn drop(&mut self) {
+        console::time_end_with_label(self.name);
+    }
+}
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
         //web_sys::console::log_1(&format!( $( $t )* ).into());
-    }
+    };
 }
 
 #[wasm_bindgen]
@@ -40,8 +58,8 @@ impl Universe {
     pub fn new() -> Universe {
         utils::set_panic_hook();
 
-        let width = 64;
-        let height = 64;
+        let width = 128;
+        let height = 128;
 
         let cells = (0..width * height)
             .map(|i| {
@@ -119,8 +137,13 @@ impl Universe {
 
     #[wasm_bindgen]
     pub fn tick(&mut self) {
+        let _timer = Timer::new("Universe::tick");
+
         let mut next = self.cells.clone();
 
+
+        {
+            let _timer = Timer::new("new generation");
         for row in 0..self.height {
             for col in 0..self.width {
                 let idx = self.get_index(row, col);
@@ -128,12 +151,12 @@ impl Universe {
                 let live_neighbours = self.live_neighbour_count(row, col);
 
                 log!(
-                "cell[{},{}] is initially {:?} and has {} live neighbours",
+                    "cell[{},{}] is initially {:?} and has {} live neighbours",
                     row,
                     col,
                     cell,
                     live_neighbours,
-            );
+                );
 
                 let next_cell = match (cell, live_neighbours) {
                     // Rule 1: Any live cell with fewer than two live neighbours
@@ -156,8 +179,8 @@ impl Universe {
 
                 next[idx] = next_cell;
             }
-        }
-
+        }}
+        let _timer = Timer::new("free old cells");
         self.cells = next;
     }
 }
