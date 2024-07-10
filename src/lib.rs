@@ -58,8 +58,21 @@ impl Universe {
     pub fn new() -> Universe {
         utils::set_panic_hook();
 
-        let width = 128;
-        let height = 128;
+        let window = web_sys::window().expect("getting window failed (weird)");
+        let screen = window.screen().expect("Getting screen failed, how are you even viewing this error? I'm kidding, I probably made a mistake");
+
+        let height = ((screen
+            .height()
+            .expect("couldn't get screen height, what does that even mean?")
+            as u32)
+            / 6)
+            - 2;
+        let width = ((screen
+            .width()
+            .expect("couldn't get screen width, what does that even mean?")
+            as u32)
+            / 6)
+            - 2;
 
         let cells = (0..width * height)
             .map(|i| {
