@@ -1,5 +1,0 @@
-/target
-.direnv/
-tags
-.pre-commit-config.yaml
-result
